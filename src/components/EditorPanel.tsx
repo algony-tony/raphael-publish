@@ -1,6 +1,7 @@
 import React from 'react';
 import { Wand2 } from 'lucide-react';
 import { handleSmartPaste } from '../lib/htmlToMarkdown';
+import { trackAction } from '../lib/analytics';
 
 interface EditorPanelProps {
     markdownInput: string;
@@ -12,6 +13,10 @@ interface EditorPanelProps {
 
 export default function EditorPanel({ markdownInput, onInputChange, editorScrollRef, onEditorScroll, scrollSyncEnabled }: EditorPanelProps) {
     const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        // Only count rich-text ("magic") pastes, not plain text
+        if (e.clipboardData?.types?.includes('text/html')) {
+            trackAction('magic_paste');
+        }
         handleSmartPaste(e, onInputChange);
     };
 

@@ -8,6 +8,7 @@ import { THEMES } from './lib/themes';
 import { defaultContent } from './defaultContent';
 import { findImagePosition, selectTextAreaRange } from './lib/imageSelector';
 import { findElementPosition, type ElementLocation } from './lib/markdownLocator';
+import { trackAction } from './lib/analytics';
 import Header from './components/Header';
 import ThemeSelector from './components/ThemeSelector';
 import Toolbar from './components/Toolbar';
@@ -36,12 +37,18 @@ export default function App() {
     }, []);
 
     const toggleTheme = () => {
-        setThemeMode((prev) => {
-            const next = prev === 'light' ? 'dark' : 'light';
+        const next = themeMode === 'light' ? 'dark' : 'light';
+        trackAction('toggle_dark_mode', next);
+        setThemeMode(() => {
             if (next === 'dark') document.documentElement.classList.add('dark');
             else document.documentElement.classList.remove('dark');
             return next;
         });
+    };
+
+    const handleThemeChange = (themeId: string) => {
+        trackAction('switch_theme', themeId);
+        setActiveTheme(themeId);
     };
 
     useEffect(() => {
@@ -156,6 +163,7 @@ export default function App() {
             });
             await navigator.clipboard.write([clipboardItem]);
 
+            trackAction('copy', activeTheme);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
@@ -167,6 +175,7 @@ export default function App() {
     };
 
     const handleExportHtml = () => {
+        trackAction('export_html');
         // Clean internal attributes before exporting
         const cleanHtml = cleanInternalAttributes(renderedHtml);
         const blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8' });
@@ -180,6 +189,7 @@ export default function App() {
 
     const handleExportPdf = () => {
         if (!previewRef.current) return;
+        trackAction('export_pdf');
         const element = previewRef.current;
         const opt = {
             margin: 10,
@@ -278,7 +288,7 @@ export default function App() {
 
             {/* 排版设置 & 工具栏 (桌面端) */}
             <div className={`glass-toolbar hidden md:grid grid-cols-1 ${gridLayoutClass()} px-0 z-[90] transition-all duration-500`}>
-                <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
+                <ThemeSelector activeTheme={activeTheme} onThemeChange={handleThemeChange} />
                 <Toolbar
                     previewDevice={previewDevice}
                     onDeviceChange={setPreviewDevice}
@@ -295,7 +305,7 @@ export default function App() {
             {/* 移动端工具栏：分两行避免按钮被主题栏挤出可视区 */}
             <div className="md:hidden glass-toolbar z-[90]">
                 <div className="overflow-x-auto no-scrollbar border-b border-[#00000010] dark:border-[#ffffff10]">
-                    <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
+                    <ThemeSelector activeTheme={activeTheme} onThemeChange={handleThemeChange} />
                 </div>
                 <Toolbar
                     previewDevice={previewDevice}
