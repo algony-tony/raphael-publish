@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { PenLine, Eye } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import { md, preprocessMarkdown, applyTheme } from './lib/markdown';
+import { md, preprocessJekyll, preprocessMarkdown, applyTheme } from './lib/markdown';
 import { markElementIndexes } from './lib/markdownIndexer';
 import { makeWeChatCompatible, cleanInternalAttributes } from './lib/wechatCompat';
 import { THEMES } from './lib/themes';
@@ -53,7 +53,7 @@ export default function App() {
 
     useEffect(() => {
         // Core rendering: markdown → HTML → styled HTML
-        const rawHtml = md.render(preprocessMarkdown(markdownInput));
+        const rawHtml = md.render(preprocessMarkdown(preprocessJekyll(markdownInput)));
         const styledHtml = applyTheme(rawHtml, activeTheme);
 
         // Enhancement layer: add index markers for click-to-locate

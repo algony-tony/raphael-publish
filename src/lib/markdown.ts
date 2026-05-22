@@ -25,6 +25,36 @@ export const md = new MarkdownIt({
     }
 });
 
+// Convert Jekyll/Liquid post syntax into plain Markdown so a blog post can be
+// pasted in directly. Runs before preprocessMarkdown / md.render.
+export function preprocessJekyll(content: string) {
+    // 1. Strip the YAML front matter block at the very top of a post.
+    content = content.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/, '');
+
+    // 2. {% highlight LANG [linedivs] %} ... {% endhighlight %} -> fenced code block.
+    content = content.replace(
+        /\{%\s*highlight\s+(\S+?)(?:\s+linedivs)?\s*%\}\r?\n?([\s\S]*?)\r?\n?\{%\s*endhighlight\s*%\}/g,
+        (_match, lang: string, code: string) => '```' + lang.toLowerCase() + '\n' + code + '\n```'
+    );
+
+    // 3. Remove the kramdown table-of-contents marker (`* TOC` + `{:toc}`) and any
+    //    standalone kramdown inline-attribute lines.
+    content = content.replace(/^[ \t]*\*[ \t]*TOC[ \t]*\r?\n/gim, '');
+    content = content.replace(/^[ \t]*\{:[^}]*\}[ \t]*\r?\n?/gim, '');
+
+    // 4. Internal {% link _posts/xxx.md %} can't be resolved without the Jekyll
+    //    site context; degrade to a placeholder href so the link text survives.
+    content = content.replace(/\{%\s*link\s+[^%]*?%\}(?:#[^)\s]*)?/g, '#');
+
+    // 5. Drop data-driven {% include %} / {% assign %} lines (need Jekyll + _data).
+    content = content.replace(/^[ \t]*\{%\s*(?:include|assign)\b[^%]*%\}[ \t]*\r?\n?/gim, '');
+
+    // 6. Safety net: strip any remaining Liquid tag.
+    content = content.replace(/\{%[^%]*%\}/g, '');
+
+    return content;
+}
+
 // Avoid bold fragmentation when pasting from certain apps
 export function preprocessMarkdown(content: string) {
     content = content.replace(/^[ ]{0,3}(\*[ ]*\*[ ]*\*[\* ]*)[ \t]*$/gm, '***');

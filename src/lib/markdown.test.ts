@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTheme, md, preprocessMarkdown } from './markdown';
+import { applyTheme, md, preprocessJekyll, preprocessMarkdown } from './markdown';
 
 function renderMarkdown(markdown: string) {
     return md.render(preprocessMarkdown(markdown));
@@ -26,6 +26,77 @@ describe('preprocessMarkdown', () => {
         const doc = new DOMParser().parseFromString(html, 'text/html');
 
         expect(doc.querySelectorAll('strong')).toHaveLength(2);
+    });
+});
+
+describe('preprocessJekyll', () => {
+    it('strips the YAML front matter at the top of a post', () => {
+        const input = '---\nlayout: post\ntitle: 标题\ntags: a b\n---\n\n正文开始。';
+        const out = preprocessJekyll(input);
+
+        expect(out).not.toContain('layout: post');
+        expect(out).not.toContain('---');
+        expect(out.trim()).toBe('正文开始。');
+    });
+
+    it('converts a {% highlight LANG linedivs %} block into a fenced code block', () => {
+        const input = '{% highlight bash linedivs %}\nnpm i -g @openai/codex\ncodex\n{% endhighlight %}';
+        const out = preprocessJekyll(input);
+
+        expect(out).toBe('```bash\nnpm i -g @openai/codex\ncodex\n```');
+    });
+
+    it('handles a highlight block without the linedivs flag and lowercases the language', () => {
+        const input = '{% highlight Vim %}\n:wq\n{% endhighlight %}';
+        const out = preprocessJekyll(input);
+
+        expect(out).toBe('```vim\n:wq\n```');
+    });
+
+    it('actually renders converted highlight blocks as code via the full pipeline', () => {
+        const html = md.render(preprocessMarkdown(preprocessJekyll(
+            '{% highlight python linedivs %}\nprint("hi")\n{% endhighlight %}'
+        )));
+
+        expect(html).toContain('<pre>');
+        expect(html).toContain('<code');
+        expect(html).not.toContain('highlight');
+    });
+
+    it('removes the kramdown TOC marker lines', () => {
+        const input = '# 标题\n\n* TOC\n{:toc}\n\n正文。';
+        const out = preprocessJekyll(input);
+
+        expect(out).not.toContain('TOC');
+        expect(out).not.toContain('{:toc}');
+        expect(out).toContain('正文。');
+    });
+
+    it('degrades an internal {% link %} to a placeholder href while keeping link text', () => {
+        const input = '见 [本站链接]({% link _posts/2022-12-04-linear-programming.md %}#匈牙利法)';
+        const out = preprocessJekyll(input);
+
+        expect(out).not.toContain('{% link');
+        expect(out).toContain('[本站链接](#)');
+    });
+
+    it('drops data-driven include and assign lines', () => {
+        const input = '正文\n{% assign csvdata = site.data.AFRE202110 %}\n{% include table.html %}\n结尾';
+        const out = preprocessJekyll(input);
+
+        expect(out).not.toContain('assign');
+        expect(out).not.toContain('include');
+        expect(out).toContain('正文');
+        expect(out).toContain('结尾');
+    });
+
+    it('strips any remaining unknown Liquid tag as a safety net', () => {
+        const input = '前 {% unknown_tag foo %} 后';
+        const out = preprocessJekyll(input);
+
+        expect(out).not.toContain('{%');
+        expect(out).toContain('前');
+        expect(out).toContain('后');
     });
 });
 
