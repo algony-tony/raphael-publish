@@ -1,5 +1,34 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { insertAtSelection } from './htmlToMarkdown';
+import { convertHtmlToMarkdown, insertAtSelection } from './htmlToMarkdown';
+
+describe('convertHtmlToMarkdown', () => {
+    it('drops the kramdown table-of-contents when pasting a rendered post', () => {
+        const html = [
+            '<h1>标题</h1>',
+            '<ul id="markdown-toc">',
+            '  <li><a href="#install">安装</a></li>',
+            '  <li><a href="#usage">用法</a></li>',
+            '</ul>',
+            '<p>正文段落。</p>',
+        ].join('');
+
+        const md = convertHtmlToMarkdown(html);
+
+        expect(md).not.toContain('安装');
+        expect(md).not.toContain('用法');
+        expect(md).not.toContain('#install');
+        expect(md).toContain('正文段落。');
+    });
+
+    it('keeps ordinary lists intact', () => {
+        const html = '<ul><li>第一项</li><li>第二项</li></ul>';
+
+        const md = convertHtmlToMarkdown(html);
+
+        expect(md).toContain('第一项');
+        expect(md).toContain('第二项');
+    });
+});
 
 describe('insertAtSelection', () => {
     beforeEach(() => {

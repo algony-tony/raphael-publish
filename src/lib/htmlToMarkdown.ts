@@ -98,6 +98,18 @@ function fileToDataUrl(file: File): Promise<string> {
     });
 }
 
+// Convert a pasted HTML fragment to Markdown. Strips the kramdown
+// table-of-contents (`{:toc}` renders as `<ul id="markdown-toc">`) first — it is
+// page navigation, not article content, so it must not reach the 公众号 output.
+// (turndown's own `remove` filter can't catch it: the built-in list rule matches
+// the <ul> before remove rules are consulted.)
+export function convertHtmlToMarkdown(html: string): string {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('#markdown-toc').forEach((el) => el.remove());
+    const markdown = turndownService.turndown(doc.body);
+    return markdown.replace(/\n{3,}/g, '\n\n');
+}
+
 export function insertAtSelection(
     textarea: HTMLTextAreaElement,
     insertedText: string,
@@ -174,8 +186,7 @@ export function handleSmartPaste(
 
         e.preventDefault();
         try {
-            let markdown = turndownService.turndown(htmlData);
-            markdown = markdown.replace(/\n{3,}/g, '\n\n');
+            const markdown = convertHtmlToMarkdown(htmlData);
 
             const textarea = e.currentTarget;
             insertAtSelection(textarea, markdown, setMarkdownInput);
