@@ -57,11 +57,36 @@ export function parseSvgDimensions(svg: string): { width: number; height: number
     return { width: width || 800, height: height || 600 };
 }
 
+/**
+ * mermaid leaves its `#NN;` entity escapes (e.g. `#60;` = `<`) undecoded when HTML
+ * labels are off — they survive into the SVG as literal `&#NN;` text and render as raw
+ * `#60;id#62;`. Decode numeric character references inside text nodes so labels show the
+ * intended characters; serialization re-escapes them (e.g. `<` -> `&lt;`), so the SVG
+ * stays valid XML.
+ */
+export function decodeSvgTextEntities(svg: string): string {
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    const root = doc.documentElement;
+    const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+        const value = node.nodeValue;
+        if (value && value.indexOf('&#') !== -1) {
+            node.nodeValue = value
+                .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(parseInt(n, 10)))
+                .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)));
+        }
+        node = walker.nextNode();
+    }
+    return new XMLSerializer().serializeToString(root);
+}
+
 async function svgToPng(svg: string, scale = 2): Promise<string> {
-    const { width, height } = parseSvgDimensions(svg);
+    const decoded = decodeSvgTextEntities(svg);
+    const { width, height } = parseSvgDimensions(decoded);
 
     // Give the SVG explicit pixel dimensions so the raster step is deterministic.
-    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    const doc = new DOMParser().parseFromString(decoded, 'image/svg+xml');
     const el = doc.documentElement;
     el.setAttribute('width', String(width));
     el.setAttribute('height', String(height));

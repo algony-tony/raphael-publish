@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MERMAID_INIT_CONFIG, parseSvgDimensions } from './mermaid';
+import { MERMAID_INIT_CONFIG, decodeSvgTextEntities, parseSvgDimensions } from './mermaid';
 
 describe('parseSvgDimensions', () => {
     it('reads width/height from the viewBox', () => {
@@ -29,5 +29,21 @@ describe('MERMAID_INIT_CONFIG', () => {
     // disabled at the top level or diagrams with <br> labels fail to rasterize to PNG.
     it('disables HTML labels at the top level', () => {
         expect(MERMAID_INIT_CONFIG.htmlLabels).toBe(false);
+    });
+});
+
+describe('decodeSvgTextEntities', () => {
+    it('decodes numeric character references mermaid leaves undecoded in SVG text', () => {
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>x &amp;#60;id&amp;#62; y</text></svg>';
+        const out = decodeSvgTextEntities(svg);
+        const text = new DOMParser().parseFromString(out, 'image/svg+xml').querySelector('text');
+        expect(text?.textContent).toBe('x <id> y');
+    });
+
+    it('leaves text without entities unchanged', () => {
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>hello 世界</text></svg>';
+        const out = decodeSvgTextEntities(svg);
+        const text = new DOMParser().parseFromString(out, 'image/svg+xml').querySelector('text');
+        expect(text?.textContent).toBe('hello 世界');
     });
 });
