@@ -155,6 +155,9 @@ export function applyTheme(html: string, themeId: string) {
 
     for (const paragraph of paragraphSnapshot) {
         if (!paragraph.isConnected || processed.has(paragraph)) continue;
+        // Mermaid diagrams render as a single-image <p class="mermaid-figure"> but must
+        // never be merged into a side-by-side image grid — keep them full-width and stacked.
+        if (paragraph.classList.contains('mermaid-figure')) continue;
         if (!getSingleImageNode(paragraph) && !isImageOnlyParagraph(paragraph)) continue;
 
         const run: HTMLParagraphElement[] = [paragraph];
@@ -163,6 +166,7 @@ export function applyTheme(html: string, themeId: string) {
         let cursor = paragraph.nextElementSibling;
         while (cursor && cursor.tagName === 'P') {
             const p = cursor as HTMLParagraphElement;
+            if (p.classList.contains('mermaid-figure')) break;
             if (!getSingleImageNode(p) && !isImageOnlyParagraph(p)) break;
             run.push(p);
             processed.add(p);

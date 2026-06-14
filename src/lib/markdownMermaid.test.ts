@@ -81,4 +81,14 @@ describe('applyTheme mermaid image', () => {
         expect(img).not.toBeNull();
         expect(img!.getAttribute('style') || '').not.toContain('box-shadow');
     });
+
+    it('does not merge adjacent mermaid figures into an image grid', () => {
+        const html =
+            '<p class="mermaid-figure"><img class="mermaid-img" src="data:image/png;base64,AAAA" /></p>' +
+            '<p class="mermaid-figure"><img class="mermaid-img" src="data:image/png;base64,BBBB" /></p>';
+        const styled = applyTheme(html, THEMES[0].id);
+        const doc = new DOMParser().parseFromString(styled, 'text/html');
+        expect(doc.querySelectorAll('.image-grid')).toHaveLength(0);
+        expect(doc.querySelectorAll('img.mermaid-img')).toHaveLength(2);
+    });
 });
