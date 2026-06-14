@@ -2,6 +2,7 @@ import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
 import { THEMES } from './themes';
+import { getMermaidEntry } from './mermaid';
 
 export const md = new MarkdownIt({
     html: true,
@@ -24,6 +25,27 @@ export const md = new MarkdownIt({
         return `<pre>${dots}<code class="hljs">${codeContent}</code></pre>`;
     }
 });
+
+// Mermaid blocks render to a cached PNG <img> (see lib/mermaid.ts). Cache miss =>
+// placeholder; cached error => fall back to the normal highlighted code block.
+const defaultFenceRenderer =
+    md.renderer.rules.fence ||
+    ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+
+md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+    const token = tokens[idx];
+    if (token.info.trim() === 'mermaid') {
+        const entry = getMermaidEntry(token.content);
+        if (entry && entry.ok) {
+            return `<p class="mermaid-figure"><img class="mermaid-img" src="${entry.png}" alt="mermaid diagram" /></p>`;
+        }
+        if (entry && !entry.ok) {
+            return defaultFenceRenderer(tokens, idx, options, env, self);
+        }
+        return `<p class="mermaid-pending" style="text-align:center;color:#8a8a8a;">图表渲染中…</p>`;
+    }
+    return defaultFenceRenderer(tokens, idx, options, env, self);
+};
 
 // Convert Jekyll/Liquid post syntax into plain Markdown so a blog post can be
 // pasted in directly. Runs before preprocessMarkdown / md.render.
@@ -70,6 +92,15 @@ export function preprocessMarkdown(content: string) {
         '$1**\u200B$2**'
     );
     return content;
+}
+
+// Pull the source text of every ```mermaid block out of already-preprocessed
+// markdown, using the real parser so keys match the fence renderer's token.content.
+export function extractMermaidSources(markdown: string): string[] {
+    return md
+        .parse(markdown, {})
+        .filter((t) => t.type === 'fence' && t.info.trim() === 'mermaid')
+        .map((t) => t.content);
 }
 
 export function applyTheme(html: string, themeId: string) {
