@@ -8,7 +8,8 @@ vi.mock('./mermaid', () => ({
 }));
 
 import { getMermaidEntry } from './mermaid';
-import { extractMermaidSources, md } from './markdown';
+import { applyTheme, extractMermaidSources, md } from './markdown';
+import { THEMES } from './themes';
 
 const mockedGetEntry = vi.mocked(getMermaidEntry);
 const FENCE = '```mermaid\ngraph TD\nA-->B\n```\n';
@@ -66,5 +67,18 @@ describe('mermaid fence rendering', () => {
         const html = md.render('```js\nconst a = 1;\n```\n');
         expect(html).toContain('hljs');
         expect(html).not.toContain('mermaid-pending');
+    });
+});
+
+describe('applyTheme mermaid image', () => {
+    it('does not apply the decorative shadow treatment to mermaid images', () => {
+        const html =
+            '<p class="mermaid-figure"><img class="mermaid-img" src="data:image/png;base64,AAAA" /></p>';
+        const styled = applyTheme(html, THEMES[0].id);
+        const img = new DOMParser()
+            .parseFromString(styled, 'text/html')
+            .querySelector('img.mermaid-img');
+        expect(img).not.toBeNull();
+        expect(img!.getAttribute('style') || '').not.toContain('box-shadow');
     });
 });

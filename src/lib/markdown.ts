@@ -321,6 +321,7 @@ export function applyTheme(html: string, themeId: string) {
 
     // Unify image look-and-feel across themes.
     doc.querySelectorAll('img').forEach(img => {
+        if (img.classList.contains('mermaid-img')) return;
         const inGrid = Boolean(img.closest('.image-grid'));
         const currentStyle = img.getAttribute('style') || '';
         const appendedStyle = inGrid
