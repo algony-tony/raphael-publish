@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSvgDimensions } from './mermaid';
+import { MERMAID_INIT_CONFIG, parseSvgDimensions } from './mermaid';
 
 describe('parseSvgDimensions', () => {
     it('reads width/height from the viewBox', () => {
@@ -21,5 +21,13 @@ describe('parseSvgDimensions', () => {
 
     it('falls back to sane defaults when nothing is parseable', () => {
         expect(parseSvgDimensions('<svg></svg>')).toEqual({ width: 800, height: 600 });
+    });
+});
+
+describe('MERMAID_INIT_CONFIG', () => {
+    // mermaid v11 ignores the deprecated flowchart.htmlLabels key; htmlLabels must be
+    // disabled at the top level or diagrams with <br> labels fail to rasterize to PNG.
+    it('disables HTML labels at the top level', () => {
+        expect(MERMAID_INIT_CONFIG.htmlLabels).toBe(false);
     });
 });

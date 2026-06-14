@@ -2,6 +2,8 @@
 // The cache is read synchronously by the markdown-it fence rule (see markdown.ts);
 // population happens asynchronously from App's render effect.
 
+import type { MermaidConfig } from 'mermaid';
+
 export type MermaidEntry = { ok: true; png: string } | { ok: false };
 
 type MermaidApi = Awaited<typeof import('mermaid')>['default'];
@@ -10,19 +12,24 @@ const cache = new Map<string, MermaidEntry>();
 let mermaidPromise: Promise<MermaidApi> | null = null;
 let renderCounter = 0;
 
+// mermaid v11 only honors `htmlLabels` at the TOP LEVEL of the config — the
+// diagram-specific `flowchart.htmlLabels` key is deprecated and silently ignored.
+// With HTML labels left on, every node label is wrapped in <foreignObject>, which
+// (a) is not painted when the SVG is drawn into an <img> for rasterization, and
+// (b) turns a label's <br> into invalid SVG XML so the <img> fails to load entirely.
+// Disabling htmlLabels emits plain SVG <text> labels, which rasterize correctly.
+export const MERMAID_INIT_CONFIG: MermaidConfig = {
+    startOnLoad: false,
+    theme: 'default',
+    htmlLabels: false,
+};
+
 function loadMermaid(): Promise<MermaidApi> {
     if (!mermaidPromise) {
         // Dynamic import => Vite splits mermaid (~2.8MB) into its own chunk,
         // loaded only when a post actually contains a diagram.
         mermaidPromise = import('mermaid').then(({ default: mermaid }) => {
-            mermaid.initialize({
-                startOnLoad: false,
-                theme: 'default',
-                // htmlLabels:false makes node labels SVG <text> instead of
-                // <foreignObject>, which is what lets the SVG rasterize to PNG
-                // (foreignObject draws blank on canvas in most browsers).
-                flowchart: { htmlLabels: false },
-            });
+            mermaid.initialize(MERMAID_INIT_CONFIG);
             return mermaid;
         });
     }
