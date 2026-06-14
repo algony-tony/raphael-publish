@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { PenLine, Eye } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import { md, preprocessJekyll, preprocessMarkdown, applyTheme } from './lib/markdown';
+import { md, preprocessJekyll, preprocessMarkdown, applyTheme, extractMermaidSources } from './lib/markdown';
+import { getMermaidEntry, renderMermaidToPng } from './lib/mermaid';
 import { markElementIndexes } from './lib/markdownIndexer';
 import { makeWeChatCompatible, cleanInternalAttributes } from './lib/wechatCompat';
 import { THEMES } from './lib/themes';
@@ -20,6 +21,7 @@ export default function App() {
     const [markdownInput, setMarkdownInput] = useState<string>(defaultContent);
     const [renderedHtml, setRenderedHtml] = useState<string>('');
     const [activeTheme, setActiveTheme] = useState(THEMES[0].id);
+    const [mermaidVersion, setMermaidVersion] = useState(0);
     const [copied, setCopied] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
     const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'pc'>('pc');
@@ -53,7 +55,8 @@ export default function App() {
 
     useEffect(() => {
         // Core rendering: markdown → HTML → styled HTML
-        const rawHtml = md.render(preprocessMarkdown(preprocessJekyll(markdownInput)));
+        const processed = preprocessMarkdown(preprocessJekyll(markdownInput));
+        const rawHtml = md.render(processed);
         const styledHtml = applyTheme(rawHtml, activeTheme);
 
         // Enhancement layer: add index markers for click-to-locate
@@ -61,7 +64,31 @@ export default function App() {
         const indexedHtml = markElementIndexes(styledHtml);
 
         setRenderedHtml(indexedHtml);
-    }, [markdownInput, activeTheme]);
+
+        // Async pass: render any not-yet-cached mermaid diagrams to PNG, then
+        // bump mermaidVersion so this effect re-runs and the fence rule swaps
+        // placeholders for <img>. Cached (ok or errored) sources are skipped,
+        // so this converges and never loops.
+        const pending = extractMermaidSources(processed).filter(
+            (src) => getMermaidEntry(src) === undefined
+        );
+        if (pending.length === 0) return;
+
+        let cancelled = false;
+        (async () => {
+            for (const code of pending) {
+                try {
+                    await renderMermaidToPng(code);
+                } catch (err) {
+                    console.warn('[mermaid] render failed:', err);
+                }
+            }
+            if (!cancelled) setMermaidVersion((v) => v + 1);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [markdownInput, activeTheme, mermaidVersion]);
 
     useEffect(() => {
         if (!scrollSyncEnabled) {
