@@ -1,0 +1,25 @@
+import { describe, expect, it } from 'vitest';
+import { parseSvgDimensions } from './mermaid';
+
+describe('parseSvgDimensions', () => {
+    it('reads width/height from the viewBox', () => {
+        expect(parseSvgDimensions('<svg viewBox="0 0 400 300"></svg>')).toEqual({
+            width: 400,
+            height: 300,
+        });
+    });
+
+    it('ignores percentage width/height and falls back to the viewBox', () => {
+        const svg = '<svg width="100%" height="100%" viewBox="0 0 640 480"></svg>';
+        expect(parseSvgDimensions(svg)).toEqual({ width: 640, height: 480 });
+    });
+
+    it('uses explicit pixel width/height when present', () => {
+        const svg = '<svg width="500" height="350" viewBox="0 0 500 350"></svg>';
+        expect(parseSvgDimensions(svg)).toEqual({ width: 500, height: 350 });
+    });
+
+    it('falls back to sane defaults when nothing is parseable', () => {
+        expect(parseSvgDimensions('<svg></svg>')).toEqual({ width: 800, height: 600 });
+    });
+});
